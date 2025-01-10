@@ -1,44 +1,29 @@
 FROM mcr.microsoft.com/windows/servercore:ltsc2019
 
-ENV ACCEPT_EULA=Y \
-   SA_PASSWORD="YourStrongP@ssw0rd" \
-   SSRS_USER="SSRSAdmin" \
-   SSRS_PASSWORD="StrongP@ssw0rd123!" \
-   SSRS_DOWNLOAD_URL="https://download.microsoft.com/download/1/a/a/1aaa9177-3578-4931-b8f3-373b24f63342/SQLServerReportingServices.exe"
+LABEL Name=SSRS2019 Version=0.0.2 Maintainer="Matthew Bowers"
 
-# Install SQL Server with SQLPS
-RUN powershell -Command \
-   Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkId=2216019" -OutFile sqlserver.exe; \
-   Start-Process -Wait -FilePath .\sqlserver.exe -ArgumentList /ENU, /IAcceptSQLServerLicenseTerms, /Quiet, /Action=install, /InstanceName=MSSQLSERVER, /Features=SQLEngine,Tools, /SQLSVCACCOUNT="NT AUTHORITY\SYSTEM", /SQLSYSADMINACCOUNTS="BUILTIN\ADMINISTRATORS", /TCPENABLED=1; \
-   Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force; \
-   Install-Module -Name SqlServer -Force -AllowClobber; \
-   Remove-Item sqlserver.exe
+ENV ssrsInstallerLocation "https://download.microsoft.com/download/1/a/a/1aaa9177-3578-4931-b8f3-373b24f63342/SQLServerReportingServices.exe"
 
-# Install SQLCMD
-RUN powershell -Command \
-   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-   Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2142258" -OutFile sqlcmd.msi; \
-   Start-Process -Wait -FilePath msiexec -ArgumentList "/i", "sqlcmd.msi", "/qn", "IACCEPTMSSQLCMDLICENSETEREMS=YES"; \
-   Remove-Item sqlcmd.msi; \
-   setx /M PATH $($Env:PATH + ';C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn')
+ENV sa_password="_" \
+    attach_dbs="[]" \
+    ACCEPT_EULA="_" \
+    sa_password_path="C:\ProgramData\Docker\secrets\sa-password" \
+    ssrs_user="_" \
+    ssrs_password="_" \
+    SSRS_edition="Dev" \
+    ssrs_password_path="C:\ProgramData\Docker\secrets\ssrs-password"
 
-# Install SSRS
-RUN powershell -Command \
-   Invoke-WebRequest -Uri $env:SSRS_DOWNLOAD_URL -OutFile ssrs.exe; \
-   Start-Process -Wait -FilePath .\ssrs.exe -ArgumentList "/quiet", "/norestart", "/IAcceptLicenseTerms", "/Edition=Dev" -PassThru; \
-   Stop-Service 'SQLServerReportingServices' -Force -ErrorAction SilentlyContinue; \
-   Remove-Item ssrs.exe
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
+# make install files accessible
 COPY start.ps1 /
-COPY configureSSRS.ps1 /
-COPY newadmin.ps1 /
-COPY sqlstart.ps1 /
+COPY SQLServer2019-DEV-x64-ENU.box /
+COPY SQLServer2019-DEV-x64-ENU.exe /
 
-RUN powershell -Command ./start.ps1 -sa_password $env:SA_PASSWORD -ACCEPT_EULA $env:ACCEPT_EULA -ssrs_user $env:SSRS_USER -ssrs_password $env:SSRS_PASSWORD -Verbose
+WORKDIR /
 
-EXPOSE 80
+RUN  Invoke-WebRequest -Uri $env:ssrsInstallerLocation -OutFile SQLServerReportingServices.exe ; \
+    Start-Process -Wait -FilePath .\SQLServerReportingServices.exe -ArgumentList "/quiet", "/norestart", "/IAcceptLicenseTerms", "/Edition=$env:SSRS_edition" -PassThru -Verbose
 
-CMD powershell -Command \
-   Start-Service MSSQLSERVER; \
-   Start-Service SQLServerReportingServices; \
-   while ($true) { Start-Sleep -Seconds 3600 }
+# Set the default command to run your start script
+#CMD ["powershell", "-File", "C:\start.ps1"]
