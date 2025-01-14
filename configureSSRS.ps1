@@ -40,11 +40,11 @@ If (! $configset.IsInitialized) {
     # Set the database connection info
     $configset.SetDatabaseConnection("(local)", "ReportServer", 2, "", "")
 
-    $configset.SetVirtualDirectory("ReportServerWebService", "ReportServer", 1033)
+    $configset.SetVirtualDirectory("ReportServerWebService", "ReportServer_SSRS", 1033)
     $configset.ReserveURL("ReportServerWebService", "http://+:80", 1033)
 
     # Did the name change?
-    $configset.SetVirtualDirectory("ReportServerWebApp", "Reports", 1033)
+    $configset.SetVirtualDirectory("ReportServerWebApp", "Reports_SSRS", 1033)
     $configset.ReserveURL("ReportServerWebApp", "http://+:80", 1033)
 
     $configset.InitializeReportServer($configset.InstallationID)
